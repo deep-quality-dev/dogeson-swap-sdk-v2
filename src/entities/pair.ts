@@ -30,6 +30,7 @@ let SPHYNX_PAIR_ADDRESS_CACHE: { [token0Address: string]: { [token1Address: stri
 export class Pair {
   public readonly liquidityToken: Token
   private readonly tokenAmounts: [TokenAmount, TokenAmount]
+  public readonly routerType: string
 
   private static getFactoryAddress(routerType: string): string {
     if (routerType && routerType === RouterType.pancake) {
@@ -49,7 +50,21 @@ export class Pair {
     const tokens = tokenA.sortsBefore(tokenB) ? [tokenA, tokenB] : [tokenB, tokenA] // does safety checks
 
     if (routerType && routerType === RouterType.pancake) {
-
+      if (PANCAKE_PAIR_ADDRESS_CACHE?.[tokens[0].address]?.[tokens[1].address] === undefined) {
+        PANCAKE_PAIR_ADDRESS_CACHE = {
+          ...PANCAKE_PAIR_ADDRESS_CACHE,
+          [tokens[0].address]: {
+            ...PANCAKE_PAIR_ADDRESS_CACHE?.[tokens[0].address],
+            [tokens[1].address]: getCreate2Address(
+              Pair.getFactoryAddress(routerType),
+              keccak256(['bytes'], [pack(['address', 'address'], [tokens[0].address, tokens[1].address])]),
+              Pair.getInitCodeHash(routerType)
+            ),
+          }
+        }
+      }
+  
+      return PANCAKE_PAIR_ADDRESS_CACHE[tokens[0].address][tokens[1].address]
     }
 
     if (SPHYNX_PAIR_ADDRESS_CACHE?.[tokens[0].address]?.[tokens[1].address] === undefined) {
@@ -81,6 +96,10 @@ export class Pair {
       'Pancake LPs'
     )
     this.tokenAmounts = tokenAmounts as [TokenAmount, TokenAmount]
+    this.routerType = routerType
+    if (!this.routerType) {
+      this.routerType = RouterType.sphynx
+    }
   }
 
   /**
@@ -142,7 +161,7 @@ export class Pair {
     return token.equals(this.token0) ? this.reserve0 : this.reserve1
   }
 
-  public getOutputAmount(routerType: string, inputAmount: TokenAmount): [TokenAmount, Pair] {
+  public getOutputAmount(inputAmount: TokenAmount): [TokenAmount, Pair] {
     invariant(this.involvesToken(inputAmount.token), 'TOKEN')
     if (JSBI.equal(this.reserve0.raw, ZERO) || JSBI.equal(this.reserve1.raw, ZERO)) {
       throw new InsufficientReservesError()
@@ -159,13 +178,13 @@ export class Pair {
     if (JSBI.equal(outputAmount.raw, ZERO)) {
       throw new InsufficientInputAmountError()
     }
-    if (routerType && routerType === RouterType.pancake) {
+    if (this.routerType && this.routerType === RouterType.pancake) {
       return [outputAmount, new Pair(RouterType.pancake, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
     }
     return [outputAmount, new Pair(RouterType.sphynx, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
   }
 
-  public getInputAmount(routerType: string, outputAmount: TokenAmount): [TokenAmount, Pair] {
+  public getInputAmount(outputAmount: TokenAmount): [TokenAmount, Pair] {
     invariant(this.involvesToken(outputAmount.token), 'TOKEN')
     if (
       JSBI.equal(this.reserve0.raw, ZERO) ||
@@ -183,7 +202,7 @@ export class Pair {
       outputAmount.token.equals(this.token0) ? this.token1 : this.token0,
       JSBI.add(JSBI.divide(numerator, denominator), ONE)
     )
-    if (routerType && routerType === RouterType.pancake) {
+    if (this.routerType && this.routerType === RouterType.pancake) {
       return [inputAmount, new Pair(RouterType.pancake, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
     }
     return [inputAmount, new Pair(RouterType.sphynx, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]

@@ -62,14 +62,15 @@ export abstract class Fetcher {
    * @param provider the provider to use to fetch the data
    */
   public static async fetchPairData(
+    routerType: string,
     tokenA: Token,
     tokenB: Token,
     provider = getDefaultProvider(getNetwork(tokenA.chainId))
   ): Promise<Pair> {
     invariant(tokenA.chainId === tokenB.chainId, 'CHAIN_ID')
-    const address = Pair.getAddress(tokenA, tokenB)
+    const address = Pair.getAddress(routerType, tokenA, tokenB)
     const [reserves0, reserves1] = await new Contract(address, IPancakePair.abi, provider).getReserves()
     const balances = tokenA.sortsBefore(tokenB) ? [reserves0, reserves1] : [reserves1, reserves0]
-    return new Pair(new TokenAmount(tokenA, balances[0]), new TokenAmount(tokenB, balances[1]))
+    return new Pair(routerType, new TokenAmount(tokenA, balances[0]), new TokenAmount(tokenB, balances[1]))
   }
 }
