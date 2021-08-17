@@ -4,10 +4,13 @@ export { JSBI }
 export {
   BigintIsh,
   ChainId,
+  RouterType,
   TradeType,
   Rounding,
-  FACTORY_ADDRESS,
-  INIT_CODE_HASH,
+  PANCAKE_FACTORY_ADDRESS,
+  PANCAKE_INIT_CODE_HASH,
+  SPHYNX_FACTORY_ADDRESS,
+  SPHYNX_INIT_CODE_HASH,
   MINIMUM_LIQUIDITY
 } from './constants'
 

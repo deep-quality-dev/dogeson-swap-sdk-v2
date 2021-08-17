@@ -7,8 +7,10 @@ import { getCreate2Address } from '@ethersproject/address'
 
 import {
   BigintIsh,
-  FACTORY_ADDRESS,
-  INIT_CODE_HASH,
+  PANCAKE_FACTORY_ADDRESS,
+  PANCAKE_INIT_CODE_HASH,
+  SPHYNX_FACTORY_ADDRESS,
+  SPHYNX_INIT_CODE_HASH,
   MINIMUM_LIQUIDITY,
   ZERO,
   ONE,
@@ -16,44 +18,64 @@ import {
   FEES_NUMERATOR,
   FEES_DENOMINATOR,
   ChainId,
+  RouterType,
 } from '../constants'
 import { sqrt, parseBigintIsh } from '../utils'
 import { InsufficientReservesError, InsufficientInputAmountError } from '../errors'
 import { Token } from './token'
 
-let PAIR_ADDRESS_CACHE: { [token0Address: string]: { [token1Address: string]: string } } = {}
+let PANCAKE_PAIR_ADDRESS_CACHE: { [token0Address: string]: { [token1Address: string]: string } } = {}
+let SPHYNX_PAIR_ADDRESS_CACHE: { [token0Address: string]: { [token1Address: string]: string } } = {}
 
 export class Pair {
   public readonly liquidityToken: Token
   private readonly tokenAmounts: [TokenAmount, TokenAmount]
 
-  public static getAddress(tokenA: Token, tokenB: Token): string {
+  private static getFactoryAddress(routerType: string): string {
+    if (routerType && routerType === RouterType.pancake) {
+      return PANCAKE_FACTORY_ADDRESS
+    }
+    return SPHYNX_FACTORY_ADDRESS // sphynx
+  }
+
+  private static getInitCodeHash(routerType: string): string {
+    if (routerType && routerType === RouterType.sphynx) {
+      return PANCAKE_INIT_CODE_HASH
+    }
+    return SPHYNX_INIT_CODE_HASH
+  }
+
+  public static getAddress(routerType: string, tokenA: Token, tokenB: Token): string {
     const tokens = tokenA.sortsBefore(tokenB) ? [tokenA, tokenB] : [tokenB, tokenA] // does safety checks
 
-    if (PAIR_ADDRESS_CACHE?.[tokens[0].address]?.[tokens[1].address] === undefined) {
-      PAIR_ADDRESS_CACHE = {
-        ...PAIR_ADDRESS_CACHE,
+    if (routerType && routerType === RouterType.pancake) {
+
+    }
+
+    if (SPHYNX_PAIR_ADDRESS_CACHE?.[tokens[0].address]?.[tokens[1].address] === undefined) {
+      SPHYNX_PAIR_ADDRESS_CACHE = {
+        ...SPHYNX_PAIR_ADDRESS_CACHE,
         [tokens[0].address]: {
-          ...PAIR_ADDRESS_CACHE?.[tokens[0].address],
+          ...SPHYNX_PAIR_ADDRESS_CACHE?.[tokens[0].address],
           [tokens[1].address]: getCreate2Address(
-            FACTORY_ADDRESS,
+            Pair.getFactoryAddress(routerType),
             keccak256(['bytes'], [pack(['address', 'address'], [tokens[0].address, tokens[1].address])]),
-            INIT_CODE_HASH
+            Pair.getInitCodeHash(routerType)
           ),
-        },
+        }
       }
     }
 
-    return PAIR_ADDRESS_CACHE[tokens[0].address][tokens[1].address]
+    return SPHYNX_PAIR_ADDRESS_CACHE[tokens[0].address][tokens[1].address]
   }
 
-  public constructor(tokenAmountA: TokenAmount, tokenAmountB: TokenAmount) {
+  public constructor(routerType: string, tokenAmountA: TokenAmount, tokenAmountB: TokenAmount) {
     const tokenAmounts = tokenAmountA.token.sortsBefore(tokenAmountB.token) // does safety checks
       ? [tokenAmountA, tokenAmountB]
       : [tokenAmountB, tokenAmountA]
     this.liquidityToken = new Token(
       tokenAmounts[0].token.chainId,
-      Pair.getAddress(tokenAmounts[0].token, tokenAmounts[1].token),
+      Pair.getAddress(routerType, tokenAmounts[0].token, tokenAmounts[1].token),
       18,
       'Cake-LP',
       'Pancake LPs'
@@ -120,7 +142,7 @@ export class Pair {
     return token.equals(this.token0) ? this.reserve0 : this.reserve1
   }
 
-  public getOutputAmount(inputAmount: TokenAmount): [TokenAmount, Pair] {
+  public getOutputAmount(routerType: string, inputAmount: TokenAmount): [TokenAmount, Pair] {
     invariant(this.involvesToken(inputAmount.token), 'TOKEN')
     if (JSBI.equal(this.reserve0.raw, ZERO) || JSBI.equal(this.reserve1.raw, ZERO)) {
       throw new InsufficientReservesError()
@@ -137,10 +159,13 @@ export class Pair {
     if (JSBI.equal(outputAmount.raw, ZERO)) {
       throw new InsufficientInputAmountError()
     }
-    return [outputAmount, new Pair(inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
+    if (routerType && routerType === RouterType.pancake) {
+      return [outputAmount, new Pair(RouterType.pancake, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
+    }
+    return [outputAmount, new Pair(RouterType.sphynx, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
   }
 
-  public getInputAmount(outputAmount: TokenAmount): [TokenAmount, Pair] {
+  public getInputAmount(routerType: string, outputAmount: TokenAmount): [TokenAmount, Pair] {
     invariant(this.involvesToken(outputAmount.token), 'TOKEN')
     if (
       JSBI.equal(this.reserve0.raw, ZERO) ||
@@ -158,7 +183,10 @@ export class Pair {
       outputAmount.token.equals(this.token0) ? this.token1 : this.token0,
       JSBI.add(JSBI.divide(numerator, denominator), ONE)
     )
-    return [inputAmount, new Pair(inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
+    if (routerType && routerType === RouterType.pancake) {
+      return [inputAmount, new Pair(RouterType.pancake, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
+    }
+    return [inputAmount, new Pair(RouterType.sphynx, inputReserve.add(inputAmount), outputReserve.subtract(outputAmount))]
   }
 
   public getLiquidityMinted(

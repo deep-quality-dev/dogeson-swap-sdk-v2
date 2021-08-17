@@ -1,5 +1,5 @@
 import invariant from 'tiny-invariant'
-import { ChainId, WETH as _WETH, TradeType, Rounding, Token, TokenAmount, Pair, Route, Trade } from '../src'
+import { ChainId, WETH as _WETH, TradeType, Rounding, Token, TokenAmount, Pair, Route, Trade, RouterType } from '../src'
 
 const ADDRESSES = [
   '0x0000000000000000000000000000000000000001',
@@ -35,14 +35,17 @@ describe('entities', () => {
       it('Pair', () => {
         pairs = [
           new Pair(
+            RouterType.sphynx,
             new TokenAmount(tokens[0], decimalize(1, tokens[0].decimals)),
             new TokenAmount(tokens[1], decimalize(1, tokens[1].decimals))
           ),
           new Pair(
+            RouterType.sphynx,
             new TokenAmount(tokens[1], decimalize(1, tokens[1].decimals)),
             new TokenAmount(tokens[2], decimalize(1, tokens[2].decimals))
           ),
           new Pair(
+            RouterType.sphynx,
             new TokenAmount(tokens[2], decimalize(1, tokens[2].decimals)),
             new TokenAmount(WETH, decimalize(1234, WETH.decimals))
           )
@@ -103,6 +106,7 @@ describe('entities', () => {
           route = new Route(
             [
               new Pair(
+                RouterType.sphynx,
                 new TokenAmount(tokens[1], decimalize(5, tokens[1].decimals)),
                 new TokenAmount(WETH, decimalize(10, WETH.decimals))
               )
@@ -153,6 +157,7 @@ describe('entities', () => {
             const route = new Route(
               [
                 new Pair(
+                  RouterType.sphynx,
                   new TokenAmount(tokens[1], decimalize(1, tokens[1].decimals)),
                   new TokenAmount(
                     WETH,
