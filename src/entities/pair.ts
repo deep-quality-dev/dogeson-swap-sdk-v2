@@ -32,15 +32,15 @@ export class Pair {
   private readonly tokenAmounts: [TokenAmount, TokenAmount]
   public readonly routerType: string
 
-  private static getFactoryAddress(routerType: string): string {
+  public static getFactoryAddress(routerType: string): string {
     if (routerType && routerType === RouterType.pancake) {
       return PANCAKE_FACTORY_ADDRESS
     }
     return SPHYNX_FACTORY_ADDRESS // sphynx
   }
 
-  private static getInitCodeHash(routerType: string): string {
-    if (routerType && routerType === RouterType.sphynx) {
+  public static getInitCodeHash(routerType: string): string {
+    if (routerType && routerType === RouterType.pancake) {
       return PANCAKE_INIT_CODE_HASH
     }
     return SPHYNX_INIT_CODE_HASH
@@ -56,9 +56,9 @@ export class Pair {
           [tokens[0].address]: {
             ...PANCAKE_PAIR_ADDRESS_CACHE?.[tokens[0].address],
             [tokens[1].address]: getCreate2Address(
-              Pair.getFactoryAddress(routerType),
+              PANCAKE_FACTORY_ADDRESS,
               keccak256(['bytes'], [pack(['address', 'address'], [tokens[0].address, tokens[1].address])]),
-              Pair.getInitCodeHash(routerType)
+              PANCAKE_INIT_CODE_HASH
             ),
           }
         }
@@ -73,9 +73,9 @@ export class Pair {
         [tokens[0].address]: {
           ...SPHYNX_PAIR_ADDRESS_CACHE?.[tokens[0].address],
           [tokens[1].address]: getCreate2Address(
-            Pair.getFactoryAddress(routerType),
+            SPHYNX_FACTORY_ADDRESS,
             keccak256(['bytes'], [pack(['address', 'address'], [tokens[0].address, tokens[1].address])]),
-            Pair.getInitCodeHash(routerType)
+            SPHYNX_INIT_CODE_HASH
           ),
         }
       }
